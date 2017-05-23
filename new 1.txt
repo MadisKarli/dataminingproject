@@ -334,6 +334,9 @@ future3$Var1 <- as.factor(future3$Var1)
 ggplot(data = accident_consequences_named, aes(x = Year, y = Count, color = Consequence, group = Consequence)) +
   geom_point() + geom_line() +
   labs(title ="Prediction of People Involved in Traffic Accidents", x = "Year", y = "Number of people") +
+  scale_color_manual(name = "Consequence", 
+                     labels = c("Involved", "Injured", "Killed"), 
+                     values = c("Osalenu" = "#00BA38", "Vigastatu" = "#619CFF", "Hukkunu" = "#F8766D")) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 60, hjust = 1)) + 
   geom_point(data = future1, aes(x= Var1, y=pred)) +
