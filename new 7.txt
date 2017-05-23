@@ -1,0 +1,209 @@
+# install.packages("ggplot2")
+# install.packages("scales")
+# install.packages("lubridate")
+
+setwd("C:\\Users\\Joonas Papoonas\\Google Drive\\Magister\\Andmekaeve\\poster")
+
+library(ggplot2)
+library(scales)
+library(lubridate)
+
+Sys.setlocale("LC_TIME", "English")
+
+accidents_dataset <- read.csv("accidents.csv", sep = ';', dec = ',', header = TRUE, stringsAsFactors = TRUE, na.strings = '', strip.white = TRUE)
+people_dataset <- read.csv("people.csv", sep = ';', dec = ',', header = TRUE, stringsAsFactors = TRUE, na.strings = '', strip.white = TRUE)
+
+# Data cleaning - accidents_dataset
+
+# Change type of Õnnetuse ID to character
+accidents_dataset$Õnnetuse.ID <- as.character(accidents_dataset$Õnnetuse.ID)
+
+# Change format Kuupäev as '%Y-%m-%d'
+accidents_dataset$Kuupäev <- as.Date((accidents_dataset$Kuupäev), format = "%d.%m.%Y")
+
+# Change type of Kellaaeg to character
+accidents_dataset$Kellaaeg <- as.character(accidents_dataset$Kellaaeg)
+
+# Change format Kellaaeg as '%H:%M'
+accidents_dataset$Kellaaeg[!grepl(":", x = accidents_dataset$Kellaaeg)] <- paste(accidents_dataset$Kellaaeg[!grepl(":", x = accidents_dataset$Kellaaeg)], ":00", sep = "")
+accidents_dataset$Kellaaeg <- format(strptime(x = accidents_dataset$Kellaaeg, format = "%H:%M"), format= "%H:%M")
+
+# Change type of Regioon to character
+accidents_dataset$Regioon <- as.character(accidents_dataset$Regioon)
+
+# Change type of Piirkiirus to factor
+accidents_dataset$Piirkiirus <- as.factor(accidents_dataset$Piirkiirus)
+
+# Checking types
+str(accidents_dataset)
+
+# Checking factor levels
+levels(accidents_dataset$Maakond)
+levels(accidents_dataset$Piirkiirus)
+levels(accidents_dataset$Õnnetuse.liik)
+levels(accidents_dataset$Asula.liik)
+levels(accidents_dataset$Tee.liik)
+levels(accidents_dataset$Teekate)
+levels(accidents_dataset$Tee.seisund)
+levels(accidents_dataset$Valgustus)
+levels(accidents_dataset$Ilmastik)
+levels(accidents_dataset$Tee.tingimus)
+levels(accidents_dataset$Tee.element)
+
+# Data cleaning - people_dataset
+
+# Change type of Õnnetuse ID to character
+people_dataset$Õnnetuse.ID <- as.character(people_dataset$Õnnetuse.ID)
+
+# Change type of Sõiduki mark to character
+people_dataset$Sõiduki.mark <- as.character(people_dataset$Sõiduki.mark)
+
+# Checking types
+str(people_dataset)
+
+# Change factor level of Tagajärg from H to Hukkunu
+levels(people_dataset$Tagajärg)[1] <- "Hukkunu"
+
+# Change factor level of Tagajärg from V to Vigastatu
+levels(people_dataset$Tagajärg)[2] <- "Vigastatu"
+
+# Change factor level of Tagajärg from NA to Osalenu
+levels(people_dataset$Tagajärg)[3] <- "Osalenu"
+people_dataset$Tagajärg[is.na(people_dataset$Tagajärg)] <- "Osalenu"
+
+# Change order of factor levels of Tagajärg
+people_dataset$Tagajärg <- factor(people_dataset$Tagajärg, levels = rev(levels(people_dataset$Tagajärg)))
+
+# Checking factor levels
+levels(people_dataset$Liikleja)
+levels(people_dataset$Liikleja.kategooria)
+levels(people_dataset$Sugu)
+levels(people_dataset$Kodakondsus)
+levels(people_dataset$Elukoha.maakond)
+levels(people_dataset$Turvavarustus)
+levels(people_dataset$Sõiduki.tüüp)
+levels(people_dataset$Tagajärg)
+
+# Merged both datasets into one
+merged_dataset <- merge(x = accidents_dataset, y = people_dataset, by="Õnnetuse.ID")
+
+# How the accidents have changed over time?
+accident_consequences <- as.data.frame(table(year(merged_dataset$Kuupäev), merged_dataset$Tagajärg))
+
+ggplot(data = accident_consequences, aes(x = Var1, y = Freq, fill = Var2, order = -as.numeric(Var2))) +
+  geom_bar(stat="identity") +
+  labs(title ="People involved in traffic accidents", x = "Year", y = "Number of people") +
+  scale_fill_manual(name = "Consequence", 
+                    labels = c("Involved", "Injured", "Killed"), 
+                    values = c("Osalenu" = "darkgreen", "Vigastatu" = "orange", "Hukkunu" = "red")) +
+  
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+
+road_users_in_accidents <- merged_dataset
+levels(road_users_in_accidents$Liikleja.kategooria) <- c("Pedestrian", "Cyclist", "Motorcyclist", "Other road user", "Driver", "Other passenger", "Car passenger", "Car passenger", "Car passenger", "Car passenger")
+
+ggplot(road_users_in_accidents, aes(x = Kuupäev, fill = Liikleja.kategooria)) +
+  geom_density(position = "fill") +
+  labs(title ="Road users involved in traffic accidents", x = "Year", y = "Scale") +
+  scale_x_date(date_breaks = "3 year", labels = date_format("%Y")) +
+  scale_fill_discrete(name = "Road user category") +
+  theme_minimal()
+
+
+# Easier to read changes in people involved
+accident_consequences_named <- accident_consequences
+names(accident_consequences_named) <- c("Year", "Consequence", "Count")
+ggplot(data = accident_consequences_named, aes(x = Year, y = Count, color = Consequence, group = Consequence)) +
+  geom_point() + geom_line() +
+  labs(title ="People involved in traffic accidents", x = "Year", y = "Number of people") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+
+# accidents per County 
+accident_places <- as.data.frame(table(year(merged_dataset$Kuupäev), merged_dataset$Maakond))
+
+# install.packages("ggmap")
+library(ggmap)
+# get map that is used as background
+
+map <- get_map(location = "Estonia", zoom = 7, maptype = "roadmap")
+# maptypes = "terrain", "terrain-background", "satellite", "roadmap", and "hybrid" (google maps), "terrain", "watercolor", and "toner" (stamen maps), or a positive integer for cloudmade maps (see ?get_cloudmademap)
+
+# define counties
+# tartu 58.3764125,26.7459023
+# tallinn 59.424884,24.5981594
+# kuressaare 58.2432094,22.4151414,
+# kärdla 58.9943125,22.7068591
+# pärnu 58.3789266,24.388259
+# viljandi 58.3561594,25.523814
+# haapsalu 58.9338171,23.460186
+# rapla 58.9994434,24.7397011
+# rakvere 59.3452645,26.2917004
+# jõhvi 59.3574005,27.3539524
+# põlva 58.0579036,27.0037687
+# võru 57.8355128,26.9313219
+# valga 57.7799419,26.0020871
+# jõgeva 58.7432361,26.3555278
+# paide 58.8850201,25.490345
+lon <- c(58.3764125, 59.424884, 58.2432094, 58.9943125,58.3789266,58.3561594,58.9338171,58.9994434,59.3452645,59.3574005
+        ,58.0579036,57.8355128,57.7799419,58.7432361,58.8850201)
+lat <- c(26.7459023, 24.5981594, 22.4151414, 22.7068591,24.388259,25.523814,23.460186,24.7397011,26.2917004,27.3539524,
+         27.0037687,26.9313219,26.0020871,26.3555278,25.490345)
+county_names <- c("Tartu maakond", "Harju maakond", "Saare maakond", "Hiiu maakond", "Pärnu maakond",
+           "Viljandi maakond", "Lääne maakond", "Rapla maakond", "Lääne-Viru maakond",
+           "Ida-Viru maakond", "Põlva maakond", "Võru maakond", "Valga maakond", "Jõgeva maakond",
+           "Järva maakond")
+counties <- data.frame(Lat = lat, Lon = lon, County = county_names)
+
+# Test if counties are correct
+# ggmap(map) + geom_point(aes(x = lat, y = lon, size = 1), data = points, alpha = .5)
+
+
+# Calculate total accidents
+
+accident_places_total <- aggregate(accident_places$Freq, by=list(Category=accident_places$Var2), FUN=sum)
+names(accident_places_total) <- c("County", "Accidents")
+
+# convert to counties to factors before merge
+counties$County <- as.factor(counties$County)
+accident_places_total$County <- as.factor(accident_places_total$County)
+
+# Merge two datasets
+accident_places_total <- merge(accident_places_total, counties)
+
+# Visualize total accidents
+ggmap(map) + 
+  geom_point(aes(x = Lat, y = Lon, size = sqrt(Accidents), color = Accidents), data = accident_places_total) +
+  guides(fill=FALSE, alpha=FALSE, size=FALSE) + 
+  labs(title ="People involved in traffic accidents")
+
+# What factors cause traffic deaths?
+ppl <- people_dataset
+
+# split data into train and test
+smp_size <- floor(0.75 * nrow(ppl))
+
+# set the seed to make your partition reproductible
+set.seed(123)
+train_ind <- sample(seq_len(nrow(ppl)), size = smp_size)
+
+train <- ppl[train_ind, ]
+test <- ppl[-train_ind, ]
+
+# Try different models
+library(rpart)
+mod <- rpart()
+
+# subset(people_dataset, Liikleja == "Jalakäija")
+
+# folds <- cut(seq(1,nrow(d)),breaks=7,labels=FALSE)
+# for(j in 1:7){
+#   #Segement your data by fold using the which() function 
+#   testIndexes <- which(folds==j,arr.ind=TRUE)
+#   testData <- d[testIndexes, ]
+#   trainData <- d[-testIndexes, ]
+#   Ypred[j,] <- predict(lm(y~poly(x,8), trainData), newdata = data.frame(x=x0))         
+# }

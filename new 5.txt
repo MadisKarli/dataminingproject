@@ -1,0 +1,6 @@
+docker service create  --name master --network sparknet --hostname master -p 8080:8080  -p 8020:8020 -p 6066:6066 -p 7077:7077 -p 18080:18080 -p 50070:50070 --env SPARK_MASTER_HOST=0.0.0.0 --constraint node.hostname==leader rtest bash start-rtest master
+
+
+docker service create --name worker --network sparknet --mode global --env SPARK_MASTER_HOST=10.0.9.3   --constraint node.hostname!=leader -p 8081:8081 -p 4040:4040 rtest bash start-rtest worker master
+
+
